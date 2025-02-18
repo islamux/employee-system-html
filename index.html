@@ -48,7 +48,7 @@
             margin-bottom: 5px;
             color: #555;
         }
-        input[type="text"], input[type="number"] {
+        input[type="text"], input[type="number"], input[type="date"] {
             width: 100%;
             padding: 8px;
             box-sizing: border-box;
@@ -204,6 +204,7 @@
                 <td>${position}</td>
                 <td>${salary}</td>
                 <td>
+                    <input type="date" class="event-date" data-id="${employee.id}">
                     <button class="attendance-btn present" onclick="recordAttendance(${employee.id}, 'present')">حاضر</button>
                     <button class="attendance-btn absent" onclick="recordAttendance(${employee.id}, 'absent')">غائب</button>
                     <button class="attendance-btn late" onclick="recordAttendance(${employee.id}, 'late')">تأخير</button>
@@ -234,8 +235,14 @@
         function recordAttendance(employeeId, status) {
             const employee = employees.find(emp => emp.id === employeeId);
             if (employee) {
-                const date = new Date();
-                const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+                const dateInput = document.querySelector(`.event-date[data-id="${employeeId}"]`);
+                const selectedDate = dateInput.value;
+
+                if (!selectedDate) {
+                    alert('يرجى اختيار تاريخ للحدث');
+                    return;
+                }
+
                 let statusLabel = '';
                 switch (status) {
                     case 'present':
@@ -251,9 +258,10 @@
                         statusLabel = 'خروج دون إذن';
                         break;
                 }
-                employee.attendance.push({ date: formattedDate, status: statusLabel });
+
+                employee.attendance.push({ date: selectedDate, status: statusLabel });
                 saveData();
-                alert(`تم تسجيل ${statusLabel} في تاريخ ${formattedDate}`);
+                alert(`تم تسجيل ${statusLabel} في تاريخ ${selectedDate}`);
             }
         }
 
@@ -321,6 +329,7 @@
                     <td>${employee.position}</td>
                     <td>${employee.salary}</td>
                     <td>
+                        <input type="date" class="event-date" data-id="${employee.id}">
                         <button class="attendance-btn present" onclick="recordAttendance(${employee.id}, 'present')">حاضر</button>
                         <button class="attendance-btn absent" onclick="recordAttendance(${employee.id}, 'absent')">غائب</button>
                         <button class="attendance-btn late" onclick="recordAttendance(${employee.id}, 'late')">تأخير</button>
