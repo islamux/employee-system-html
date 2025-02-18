@@ -75,6 +75,14 @@
             background-color: #dc3545;
             color: white;
         }
+        .late {
+            background-color: #ffc107;
+            color: white;
+        }
+        .early-leave {
+            background-color: #fd7e14;
+            color: white;
+        }
         .report-btn {
             margin-top: 20px;
             display: block;
@@ -119,8 +127,8 @@
                     <th>اسم الموظف</th>
                     <th>المنصب</th>
                     <th>الراتب</th>
+                    <th>الإجراءات</th>
                     <th>الحضور والغياب</th>
-                    <th>إجراءات</th>
                 </tr>
             </thead>
             <tbody>
@@ -136,12 +144,24 @@
                 <thead>
                     <tr>
                         <th>اسم الموظف</th>
-                        <th>تاريخ الحضور/الغياب</th>
+                        <th>تاريخ الحدث</th>
                         <th>الحالة</th>
                     </tr>
                 </thead>
                 <tbody>
                     <!-- بيانات التقرير ستُضاف هنا -->
+                </tbody>
+            </table>
+            <h3>إجمالي الغياب لكل موظف</h3>
+            <table id="absenceSummaryTable">
+                <thead>
+                    <tr>
+                        <th>اسم الموظف</th>
+                        <th>عدد الغيابات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- إجمالي الغيابات سيُضاف هنا -->
                 </tbody>
             </table>
         </div>
@@ -181,6 +201,8 @@
                 <td>
                     <button class="attendance-btn present" onclick="recordAttendance(${employee.id}, 'present')">حاضر</button>
                     <button class="attendance-btn absent" onclick="recordAttendance(${employee.id}, 'absent')">غائب</button>
+                    <button class="attendance-btn late" onclick="recordAttendance(${employee.id}, 'late')">تأخير</button>
+                    <button class="attendance-btn early-leave" onclick="recordAttendance(${employee.id}, 'early-leave')">خروج دون إذن</button>
                 </td>
                 <td><button onclick="deleteEmployee(this)">حذف</button></td>
             `;
@@ -208,14 +230,55 @@
             if (employee) {
                 const date = new Date();
                 const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-                employee.attendance.push({ date: formattedDate, status });
-                alert(`تم تسجيل ${status === 'present' ? 'الحضور' : 'الغياب'} في تاريخ ${formattedDate}`);
+                let statusLabel = '';
+                switch (status) {
+                    case 'present':
+                        statusLabel = 'حاضر';
+                        break;
+                    case 'absent':
+                        statusLabel = 'غائب';
+                        break;
+                    case 'late':
+                        statusLabel = 'تأخير';
+                        break;
+                    case 'early-leave':
+                        statusLabel = 'خروج دون إذن';
+                        break;
+                }
+                employee.attendance.push({ date: formattedDate, status: statusLabel });
+                alert(`تم تسجيل ${statusLabel} في تاريخ ${formattedDate}`);
             }
+        }
+
+        function calculateAbsences(attendance) {
+            let absences = 0;
+            let lateCount = 0;
+            let earlyLeaveCount = 0;
+
+            attendance.forEach(record => {
+                if (record.status === 'غائب') {
+                    absences++;
+                } else if (record.status === 'تأخير') {
+                    lateCount++;
+                } else if (record.status === 'خروج دون إذن') {
+                    earlyLeaveCount++;
+                }
+            });
+
+            // كل تأخيرين يساوي غياب يوم
+            absences += Math.floor(lateCount / 2);
+
+            // كل خروجين دون إذن يساوي غياب يوم
+            absences += Math.floor(earlyLeaveCount / 2);
+
+            return absences;
         }
 
         function generateMonthlyReport() {
             const reportTableBody = document.querySelector('#reportTable tbody');
+            const absenceSummaryTableBody = document.querySelector('#absenceSummaryTable tbody');
             reportTableBody.innerHTML = '';
+            absenceSummaryTableBody.innerHTML = '';
 
             employees.forEach(employee => {
                 employee.attendance.forEach(record => {
@@ -223,10 +286,18 @@
                     newRow.innerHTML = `
                         <td>${employee.name}</td>
                         <td>${record.date}</td>
-                        <td>${record.status === 'present' ? 'حاضر' : 'غائب'}</td>
+                        <td>${record.status}</td>
                     `;
                     reportTableBody.appendChild(newRow);
                 });
+
+                const absences = calculateAbsences(employee.attendance);
+                const summaryRow = document.createElement('tr');
+                summaryRow.innerHTML = `
+                    <td>${employee.name}</td>
+                    <td>${absences}</td>
+                `;
+                absenceSummaryTableBody.appendChild(summaryRow);
             });
 
             document.getElementById('reportContainer').style.display = 'block';
