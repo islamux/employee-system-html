@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة الموظفين</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .attendance-btn {
+            padding: 5px 10px;
+            margin: 2px;
+        }
+        .present {
+            background-color: #28a745;
+            color: white;
+        }
+        .absent {
+            background-color: #dc3545;
+            color: white;
+        }
+        .report-btn {
+            margin-top: 20px;
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .report-btn:hover {
+            background-color: #0056b3;
+        }
+        .report-container {
+            margin-top: 20px;
+        }
+        .report-container table {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>نظام إدارة الموظفين</h1>
+        <div class="form-group">
+            <label for="name">اسم الموظف:</label>
+            <input type="text" id="name" placeholder="أدخل اسم الموظف">
+        </div>
+        <div class="form-group">
+            <label for="position">المنصب:</label>
+            <input type="text" id="position" placeholder="أدخل المنصب">
+        </div>
+        <div class="form-group">
+            <label for="salary">الراتب:</label>
+            <input type="number" id="salary" placeholder="أدخل الراتب">
+        </div>
+        <button onclick="addEmployee()">إضافة موظف</button>
+
+        <table id="employeeTable">
+            <thead>
+                <tr>
+                    <th>اسم الموظف</th>
+                    <th>المنصب</th>
+                    <th>الراتب</th>
+                    <th>الحضور والغياب</th>
+                    <th>إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- بيانات الموظفين ستُضاف هنا -->
+            </tbody>
+        </table>
+
+        <button class="report-btn" onclick="generateMonthlyReport()">توليد تقرير شهري</button>
+
+        <div class="report-container" id="reportContainer">
+            <h2>التقرير الشهري</h2>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>اسم الموظف</th>
+                        <th>تاريخ الحضور/الغياب</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- بيانات التقرير ستُضاف هنا -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const employees = [];
+
+        function addEmployee() {
+            const name = document.getElementById('name').value.trim();
+            const position = document.getElementById('position').value.trim();
+            const salary = document.getElementById('salary').value.trim();
+
+            if (!name || !position || !salary) {
+                alert('يرجى ملء جميع الحقول');
+                return;
+            }
+
+            const employee = {
+                id: Date.now(),
+                name,
+                position,
+                salary,
+                attendance: []
+            };
+
+            employees.push(employee);
+
+            const tableBody = document.querySelector('#employeeTable tbody');
+
+            const newRow = document.createElement('tr');
+            newRow.setAttribute('data-id', employee.id);
+            newRow.innerHTML = `
+                <td>${name}</td>
+                <td>${position}</td>
+                <td>${salary}</td>
+                <td>
+                    <button class="attendance-btn present" onclick="recordAttendance(${employee.id}, 'present')">حاضر</button>
+                    <button class="attendance-btn absent" onclick="recordAttendance(${employee.id}, 'absent')">غائب</button>
+                </td>
+                <td><button onclick="deleteEmployee(this)">حذف</button></td>
+            `;
+
+            tableBody.appendChild(newRow);
+
+            // مسح الحقول بعد الإضافة
+            document.getElementById('name').value = '';
+            document.getElementById('position').value = '';
+            document.getElementById('salary').value = '';
+        }
+
+        function deleteEmployee(button) {
+            const row = button.parentElement.parentElement;
+            const employeeId = parseInt(row.getAttribute('data-id'));
+            const index = employees.findIndex(emp => emp.id === employeeId);
+            if (index !== -1) {
+                employees.splice(index, 1);
+            }
+            row.remove();
+        }
+
+        function recordAttendance(employeeId, status) {
+            const employee = employees.find(emp => emp.id === employeeId);
+            if (employee) {
+                const date = new Date();
+                const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+                employee.attendance.push({ date: formattedDate, status });
+                alert(`تم تسجيل ${status === 'present' ? 'الحضور' : 'الغياب'} في تاريخ ${formattedDate}`);
+            }
+        }
+
+        function generateMonthlyReport() {
+            const reportTableBody = document.querySelector('#reportTable tbody');
+            reportTableBody.innerHTML = '';
+
+            employees.forEach(employee => {
+                employee.attendance.forEach(record => {
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>${employee.name}</td>
+                        <td>${record.date}</td>
+                        <td>${record.status === 'present' ? 'حاضر' : 'غائب'}</td>
+                    `;
+                    reportTableBody.appendChild(newRow);
+                });
+            });
+
+            document.getElementById('reportContainer').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
