@@ -168,7 +168,11 @@
     </div>
 
     <script>
-        const employees = [];
+        const employees = JSON.parse(localStorage.getItem('employees')) || [];
+
+        function saveData() {
+            localStorage.setItem('employees', JSON.stringify(employees));
+        }
 
         function addEmployee() {
             const name = document.getElementById('name').value.trim();
@@ -189,6 +193,7 @@
             };
 
             employees.push(employee);
+            saveData();
 
             const tableBody = document.querySelector('#employeeTable tbody');
 
@@ -221,6 +226,7 @@
             const index = employees.findIndex(emp => emp.id === employeeId);
             if (index !== -1) {
                 employees.splice(index, 1);
+                saveData();
             }
             row.remove();
         }
@@ -246,6 +252,7 @@
                         break;
                 }
                 employee.attendance.push({ date: formattedDate, status: statusLabel });
+                saveData();
                 alert(`تم تسجيل ${statusLabel} في تاريخ ${formattedDate}`);
             }
         }
@@ -302,6 +309,28 @@
 
             document.getElementById('reportContainer').style.display = 'block';
         }
+
+        // عند تحميل الصفحة، استرجع البيانات من localStorage
+        window.onload = () => {
+            employees.forEach(employee => {
+                const tableBody = document.querySelector('#employeeTable tbody');
+                const newRow = document.createElement('tr');
+                newRow.setAttribute('data-id', employee.id);
+                newRow.innerHTML = `
+                    <td>${employee.name}</td>
+                    <td>${employee.position}</td>
+                    <td>${employee.salary}</td>
+                    <td>
+                        <button class="attendance-btn present" onclick="recordAttendance(${employee.id}, 'present')">حاضر</button>
+                        <button class="attendance-btn absent" onclick="recordAttendance(${employee.id}, 'absent')">غائب</button>
+                        <button class="attendance-btn late" onclick="recordAttendance(${employee.id}, 'late')">تأخير</button>
+                        <button class="attendance-btn early-leave" onclick="recordAttendance(${employee.id}, 'early-leave')">خروج دون إذن</button>
+                    </td>
+                    <td><button onclick="deleteEmployee(this)">حذف</button></td>
+                `;
+                tableBody.appendChild(newRow);
+            });
+        };
     </script>
 </body>
 </html>
