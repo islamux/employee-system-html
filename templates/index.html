@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة الموظفين</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            direction: rtl; /* تحويل الاتجاه إلى اليمين إلى اليسار */
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            direction: rtl; /* ضمان اتجاه الجدول من اليمين إلى اليسار */
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: right; /* محاذاة النصوص إلى اليمين */
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            direction: rtl; /* ضمان اتجاه الحاوية من اليمين إلى اليسار */
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: right; /* محاذاة النصوص إلى اليمين */
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            text-align: right; /* محاذاة النصوص إلى اليمين */
+        }
+        input[type="text"], input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            direction: rtl; /* جعل حقول الإدخال تتبع الاتجاه من اليمين إلى اليسار */
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .edit-btn {
+            background-color: #ffc107;
+            margin-left: 5px;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>نظام إدارة الموظفين</h1>
+        <div class="form-group">
+            <label for="name">اسم الموظف:</label>
+            <input type="text" id="name" placeholder="أدخل اسم الموظف">
+        </div>
+        <div class="form-group">
+            <label for="position">المنصب:</label>
+            <input type="text" id="position" placeholder="أدخل المنصب">
+        </div>
+        <div class="form-group">
+            <label for="salary">الراتب:</label>
+            <input type="number" id="salary" placeholder="أدخل الراتب" dir="ltr"> <!-- اتجاه الأرقام من اليسار إلى اليمين -->
+        </div>
+        <button onclick="addEmployee()">إضافة موظف</button>
+
+        <table id="employeeTable">
+            <thead>
+                <tr>
+                    <th>اسم الموظف</th>
+                    <th>المنصب</th>
+                    <th>الراتب</th>
+                    <th>الحضور والغياب</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- بيانات الموظفين ستُضاف هنا -->
+            </tbody>
+        </table>
+
+        <button onclick="generateReport()">توليد التقرير الشهري</button>
+
+        <div id="reportContainer" style="display: none;">
+            <h2>التقرير الشهري</h2>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>اسم الموظف</th>
+                        <th>عدد الغيابات</th>
+                        <th>رصيد الإجازات السنوية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- بيانات التقرير ستُضاف هنا -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const PASSWORD = "islamux"; // كلمة المرور الثابتة
+
+        // إضافة موظف
+        async function addEmployee() {
+            const name = document.getElementById('name').value.trim();
+            const position = document.getElementById('position').value.trim();
+            const salary = document.getElementById('salary').value.trim();
+
+            if (!name || !position || !salary) {
+                alert('يرجى ملء جميع الحقول');
+                return;
+            }
+
+            const response = await fetch('/add_employee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `name=${name}&position=${position}&salary=${salary}`
+            });
+
+            const result = await response.json();
+            if (result.error) {
+                alert(result.error);
+            } else {
+                alert(result.message);
+                loadEmployees();
+            }
+        }
+
+        // تحميل قائمة الموظفين
+        async function loadEmployees() {
+            const response = await fetch('/get_employees');
+            const employees = await response.json();
+
+            const tableBody = document.querySelector('#employeeTable tbody');
+            tableBody.innerHTML = '';
+
+            employees.forEach(employee => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-id', employee[0]);
+                row.innerHTML = `
+                    <td>${employee[1]}</td>
+                    <td>${employee[2]}</td>
+                    <td>${employee[3]}</td>
+                    <td>
+                        <input type="date" class="event-date" data-id="${employee[0]}" dir="ltr">
+                        <button onclick="recordAttendance(${employee[0]}, 'present')">حاضر</button>
+                        <button onclick="recordAttendance(${employee[0]}, 'absent')">غائب</button>
+                        <button onclick="recordAttendance(${employee[0]}, 'late')">تأخير</button>
+                        <button onclick="recordAttendance(${employee[0]}, 'early-leave')">خروج دون إذن</button>
+                    </td>
+                    <td>
+                        <button class="edit-btn" onclick="editEmployee(${employee[0]}, '${employee[1]}', '${employee[2]}', ${employee[3]})">تعديل</button>
+                        <button class="delete-btn" onclick="deleteEmployee(${employee[0]})">حذف</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // تعديل بيانات الموظف
+        function editEmployee(employeeId, name, position, salary) {
+            const password = prompt("أدخل كلمة المرور للسماح بالتعديل:");
+            if (password !== PASSWORD) {
+                alert("كلمة المرور غير صحيحة!");
+                return;
+            }
+
+            const newName = prompt('أدخل الاسم الجديد:', name);
+            const newPosition = prompt('أدخل المنصب الجديد:', position);
+            const newSalary = prompt('أدخل الراتب الجديد:', salary);
+
+            if (!newName || !newPosition || !newSalary) {
+                alert('يرجى ملء جميع الحقول');
+                return;
+            }
+
+            fetch('/update_employee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `employee_id=${employeeId}&name=${newName}&position=${newPosition}&salary=${newSalary}`
+            }).then(response => response.json()).then(result => {
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    alert(result.message);
+                    loadEmployees();
+                }
+            });
+        }
+
+        // حذف موظف
+        function deleteEmployee(employeeId) {
+            const password = prompt("أدخل كلمة المرور للسماح بالحذف:");
+            if (password !== PASSWORD) {
+                alert("كلمة المرور غير صحيحة!");
+                return;
+            }
+
+            if (!confirm('هل أنت متأكد من حذف هذا الموظف؟')) {
+                return;
+            }
+
+            fetch('/delete_employee', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `employee_id=${employeeId}`
+            }).then(response => response.json()).then(result => {
+                if (result.error) {
+                    alert(result.error);
+                } else {
+                    alert(result.message);
+                    loadEmployees();
+                }
+            });
+        }
+
+        // تسجيل الحضور والغياب
+        async function recordAttendance(employeeId, status) {
+            const dateInput = document.querySelector(`.event-date[data-id="${employeeId}"]`);
+            const date = dateInput.value;
+
+            if (!date) {
+                alert('يرجى اختيار تاريخ للحدث');
+                return;
+            }
+
+            const response = await fetch('/record_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `employee_id=${employeeId}&date=${date}&status=${status}`
+            });
+
+            const result = await response.json();
+            alert(result.message);
+        }
+
+        // توليد التقرير الشهري
+        async function generateReport() {
+            const response = await fetch('/generate_report');
+            const report = await response.json();
+
+            const reportTableBody = document.querySelector('#reportTable tbody');
+            reportTableBody.innerHTML = '';
+
+            report.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>${item.absences}</td>
+                    <td>${item.annual_leave_balance}</td>
+                `;
+                reportTableBody.appendChild(row);
+            });
+
+            document.getElementById('reportContainer').style.display = 'block';
+        }
+
+        // عند تحميل الصفحة، قم بتحميل قائمة الموظفين
+        window.onload = () => {
+            loadEmployees();
+        };
+    </script>
+</body>
+</html>
