@@ -7,6 +7,7 @@ app = Flask(__name__)
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
+    # إنشاء جدول الموظفين
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,6 +17,7 @@ def init_db():
             annual_leave_balance INTEGER DEFAULT 30
         )
     ''')
+    # إنشاء جدول الحضور والغياب
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,6 +27,12 @@ def init_db():
             FOREIGN KEY (employee_id) REFERENCES employees (id)
         )
     ''')
+    # إضافة العمود annual_leave_balance إذا لم يكن موجودًا
+    try:
+        cursor.execute('ALTER TABLE employees ADD COLUMN annual_leave_balance INTEGER DEFAULT 30')
+    except sqlite3.OperationalError:
+        # إذا كان العمود موجودًا بالفعل، لن يحدث خطأ
+        pass
     conn.commit()
     conn.close()
 
@@ -57,8 +65,8 @@ def add_employee():
         cursor.execute('INSERT INTO employees (name, position, salary) VALUES (?, ?, ?)', (name, position, salary))
         conn.commit()
         return jsonify({'message': 'تم إضافة الموظف بنجاح'})
-    except sqlite3.IntegrityError:
-        return jsonify({'error': 'حدث خطأ أثناء إضافة الموظف'})
+    except sqlite3.IntegrityError as e:
+        return jsonify({'error': f'حدث خطأ: {str(e)}'})
     finally:
         conn.close()
 
@@ -113,24 +121,35 @@ def record_attendance():
     date = request.form['date']
     status = request.form['status']
 
+    if not date or not status:
+        return jsonify({'error': 'يرجى ملء جميع الحقول'})
+
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO attendance (employee_id, date, status) VALUES (?, ?, ?)', (employee_id, date, status))
-    conn.commit()
-    conn.close()
 
-    return jsonify({'message': 'تم تسجيل الحدث بنجاح'})
+    try:
+        cursor.execute('INSERT INTO attendance (employee_id, date, status) VALUES (?, ?, ?)', (employee_id, date, status))
+        conn.commit()
+        return jsonify({'message': 'تم تسجيل الحدث بنجاح'})
+    except Exception as e:
+        return jsonify({'error': f'حدث خطأ: {str(e)}'})
+    finally:
+        conn.close()
 
 # الحصول على قائمة الموظفين
 @app.route('/get_employees', methods=['GET'])
 def get_employees():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM employees')
-    employees = cursor.fetchall()
-    conn.close()
 
-    return jsonify(employees)
+    try:
+        cursor.execute('SELECT * FROM employees')
+        employees = cursor.fetchall()
+        return jsonify(employees)
+    except Exception as e:
+        return jsonify({'error': f'حدث خطأ: {str(e)}'})
+    finally:
+        conn.close()
 
 # توليد التقرير الشهري
 @app.route('/generate_report', methods=['GET'])
@@ -138,38 +157,41 @@ def generate_report():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
-    # الحصول على جميع الموظفين
-    cursor.execute('SELECT * FROM employees')
-    employees = cursor.fetchall()
+    try:
+        # الحصول على جميع الموظفين
+        cursor.execute('SELECT * FROM employees')
+        employees = cursor.fetchall()
 
-    report = []
-    for employee in employees:
-        employee_id = employee[0]
-        name = employee[1]
-        annual_leave_balance = employee[4]
+        report = []
+        for employee in employees:
+            employee_id = employee[0]
+            name = employee[1]
+            annual_leave_balance = employee[4] if len(employee) > 4 else 30  # استخدام القيمة الافتراضية إذا لم يكن العمود موجودًا
 
-        # الحصول على سجل الحضور والغياب للموظف
-        cursor.execute('SELECT status FROM attendance WHERE employee_id = ?', (employee_id,))
-        attendance_records = cursor.fetchall()
+            # الحصول على سجل الحضور والغياب للموظف
+            cursor.execute('SELECT status FROM attendance WHERE employee_id = ?', (employee_id,))
+            attendance_records = cursor.fetchall()
 
-        # حساب الغيابات الناتجة عن التأخير والخروج دون إذن
-        late_count = sum(1 for record in attendance_records if record[0] == 'late')
-        early_leave_count = sum(1 for record in attendance_records if record[0] == 'early-leave')
-        absences = (late_count // 2) + (early_leave_count // 2)
+            # حساب الغيابات الناتجة عن التأخير والخروج دون إذن
+            late_count = sum(1 for record in attendance_records if record[0] == 'late')
+            early_leave_count = sum(1 for record in attendance_records if record[0] == 'early-leave')
+            absences = (late_count // 2) + (early_leave_count // 2)
 
-        # تحديث رصيد الإجازات السنوية
-        annual_leave_balance -= absences
+            # تحديث رصيد الإجازات السنوية
+            annual_leave_balance -= absences
 
-        # إضافة التقرير الخاص بالموظف
-        report.append({
-            'name': name,
-            'absences': absences,
-            'annual_leave_balance': max(annual_leave_balance, 0)  # لا يمكن أن يكون الرصيد أقل من صفر
-        })
+            # إضافة التقرير الخاص بالموظف
+            report.append({
+                'name': name,
+                'absences': absences,
+                'annual_leave_balance': max(annual_leave_balance, 0)  # لا يمكن أن يكون الرصيد أقل من صفر
+            })
 
-    conn.close()
-
-    return jsonify(report)
+        return jsonify(report)
+    except Exception as e:
+        return jsonify({'error': f'حدث خطأ: {str(e)}'})
+    finally:
+        conn.close()
 
 # تشغيل التطبيق
 if __name__ == '__main__':
